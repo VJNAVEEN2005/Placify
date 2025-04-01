@@ -1,6 +1,21 @@
 <?php
 session_start();
-include '../config.php'; // Database connection file
+
+$servername = "localhost";  // Correct MySQL server hostname
+$username = "root";
+$password = ""; // Your MySQL password
+$database = "placify";
+$conn = "";
+
+// Create connection
+$conn = mysqli_connect($servername, $username, $password, $database);
+
+// Check connection
+if ($conn) {
+    echo "Connection successful";
+} else {
+    echo "Connection failed: " . mysqli_connect_error(); // Output the error message
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Retrieve form data
@@ -23,7 +38,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $hashed_password = password_hash($password, PASSWORD_BCRYPT);
     
     // Check if email or username already exists
-    $stmt = $conn->prepare("SELECT * FROM admins WHERE email = ? OR username = ?");
+    $stmt = $conn->prepare("SELECT * FROM admin WHERE email = ? OR username = ?");
     $stmt->bind_param("ss", $email, $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -34,8 +49,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     
     // Insert into database
-    $stmt = $conn->prepare("INSERT INTO admins (firstname, lastname, email, username, password, institution, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $hashed_password, $institution, $position);
+    $stmt = $conn->prepare("INSERT INTO admin (firstname, lastname, email, username, password, institution, position) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $password, $institution, $position);
     
     if ($stmt->execute()) {
         echo "<script>alert('Registration successful!'); window.location.href = 'login.php';</script>";
