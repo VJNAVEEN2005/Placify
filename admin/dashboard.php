@@ -447,15 +447,15 @@ $tests = $stmt->fetchAll();
                                         <a href="view_results.php?test_id=<?= $test['test_id']; ?>" class="link-button link-info">
                                             <i class="fas fa-chart-bar"></i> Results
                                         </a>
-                                        <a href="edit_test.php?test_id=<?= $test['test_id']; ?>" class="link-button link-primary">
-                                            <i class="fas fa-edit"></i> Edit
+                                        <a href="delete_test.php?test_id=<?= $test['test_id']; ?>" class="link-button link-primary">
+                                            <i class="fas fa-edit"></i> Delete
                                         </a>
                                         <?php if ($test['is_active']): ?>
                                             <a href="toggle_test.php?test_id=<?= $test['test_id']; ?>&action=deactivate" class="link-button link-danger">
                                                 <i class="fas fa-times-circle"></i> Deactivate
                                             </a>
                                         <?php else: ?>
-                                            <a href="toggle_test.php?test_id=<?= $test['test_id']; ?>&action=activate" class="link-button link-primary">
+                                            <a href="toggle_test.php?test_id=<?= $test['test_id']; ?>&action=activate" class="link-button badge-success">
                                                 <i class="fas fa-check-circle"></i> Activate
                                             </a>
                                         <?php endif; ?>

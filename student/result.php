@@ -30,9 +30,9 @@ if (!$submission) {
     exit;
 }
 
-// Fetch answers to display in detail
+// Fetch answers to display in detail - modified to include question images
 $stmt = $pdo->prepare("
-    SELECT a.*, q.question_text, o.option_text 
+    SELECT a.*, q.question_text, q.question_id, q.image_data, q.image_type, o.option_text 
     FROM answers a
     JOIN questions q ON a.question_id = q.question_id
     LEFT JOIN options o ON a.selected_option_id = o.option_id
@@ -266,6 +266,53 @@ if ($percentage >= 80) {
             color: var(--error);
         }
         
+        /* New styles for question images */
+        .question-image {
+            max-width: 100px;
+            max-height: 60px;
+            cursor: pointer;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+            transition: transform 0.2s ease;
+        }
+        
+        .question-image:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Modal styles for image preview */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 25px;
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
         @media (max-width: 768px) {
             .dashboard-container {
                 padding: 0 1rem;
@@ -286,6 +333,11 @@ if ($percentage >= 80) {
             .answer-table {
                 display: block;
                 overflow-x: auto;
+            }
+            
+            .question-image {
+                max-width: 80px;
+                max-height: 50px;
             }
         }
     </style>
@@ -320,6 +372,7 @@ if ($percentage >= 80) {
                     <tr>
                         <th>#</th>
                         <th>Question</th>
+                        <th>Image</th>
                         <th>Your Answer</th>
                         <th>Status</th>
                         <th>Points</th>
@@ -331,6 +384,23 @@ if ($percentage >= 80) {
                         <tr>
                             <td><?= $questionNumber++; ?></td>
                             <td><?= htmlspecialchars($answer['question_text']); ?></td>
+                            <td>
+                                <?php if (!empty($answer['image_data'])): ?>
+                                    <?php 
+                                    $imageData = base64_encode($answer['image_data']);
+                                    $imageType = $answer['image_type'];
+                                    $imageId = "question-" . $answer['question_id'];
+                                    ?>
+                                    <img 
+                                        src="data:<?= $imageType ?>;base64,<?= $imageData ?>" 
+                                        alt="Question Image" 
+                                        class="question-image"
+                                        onclick="openImageInNewTab('data:<?= $imageType ?>;base64,<?= $imageData ?>')"
+                                    >
+                                <?php else: ?>
+                                    <span class="text-muted">No image</span>
+                                <?php endif; ?>
+                            </td>
                             <td><?= htmlspecialchars($answer['option_text'] ?: $answer['answer_text']); ?></td>
                             <td>
                                 <?php if ($answer['is_correct']): ?>
@@ -396,8 +466,26 @@ if ($percentage >= 80) {
                 <p style="margin: 0; color: #6c757d;"><?= $feedbackMessage; ?></p>
             </div>
         </div>
-        
-     
     </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+
+    <script>
+        // Function to open image in a new tab
+        function openImageInNewTab(imageDataUrl) {
+            const newTab = window.open();
+            newTab.document.write('<html><head><title>Question Image</title>');
+            newTab.document.write('<style>body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #000; }');
+            newTab.document.write('img { max-width: 90%; max-height: 90%; object-fit: contain; }</style>');
+            newTab.document.write('</head><body>');
+            newTab.document.write('<img src="' + imageDataUrl + '" alt="Question Image">');
+            newTab.document.write('</body></html>');
+            newTab.document.close();
+        }
+    </script>
 </body>
 </html>

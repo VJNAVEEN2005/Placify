@@ -14,6 +14,7 @@ if (!isset($_GET['test_id'])) {
 
 $test_id = $_GET['test_id'];
 $message = '';
+// No need for upload directory since we're storing images in the database
 
 // Fetch test info
 $test_stmt = $pdo->prepare("SELECT test_title FROM tests WHERE test_id = ?");
@@ -23,11 +24,11 @@ $test = $test_stmt->fetch(PDO::FETCH_ASSOC);
 // Handle deletion
 if (isset($_GET['delete_question_id'])) {
     $qid = $_GET['delete_question_id'];
-
+    
     // Delete from options first (due to foreign key)
     $pdo->prepare("DELETE FROM options WHERE question_id = ?")->execute([$qid]);
 
-    // Then delete from questions
+    // Then delete from questions (image data will be deleted along with the question record)
     $pdo->prepare("DELETE FROM questions WHERE question_id = ?")->execute([$qid]);
 
     $message = "Question deleted successfully!";
@@ -42,27 +43,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['question_text'])) {
     $option_d = $_POST['option_d'];
     $correct_option = $_POST['correct_option'];
     $points = $_POST['points'] ?? 1;
-
-    $stmt = $pdo->prepare("INSERT INTO questions (test_id, question_text, question_type, points) VALUES (?, ?, 'mcq', ?)");
-    if ($stmt->execute([$test_id, $question_text, $points])) {
-        $question_id = $pdo->lastInsertId();
-
-        $options = [
-            'A' => $option_a,
-            'B' => $option_b,
-            'C' => $option_c,
-            'D' => $option_d
-        ];
-
-        foreach ($options as $label => $text) {
-            $is_correct = ($label === $correct_option) ? 1 : 0;
-            $pdo->prepare("INSERT INTO options (question_id, option_text, is_correct) VALUES (?, ?, ?)")
-                ->execute([$question_id, $text, $is_correct]);
+    
+    // Initialize image variables
+    $image_data = null;
+    $image_type = null;
+    
+    // Handle image upload
+    if (isset($_FILES['question_image']) && $_FILES['question_image']['error'] == 0) {
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+        $file_type = $_FILES['question_image']['type'];
+        
+        if (in_array($file_type, $allowed_types)) {
+            // Read file content into binary data
+            $image_data = file_get_contents($_FILES['question_image']['tmp_name']);
+            $image_type = $file_type;
+        } else {
+            $message = "Only JPG, PNG and GIF files are allowed.";
         }
+    }
 
-        $message = "Question added successfully!";
-    } else {
-        $message = "Something went wrong while adding the question.";
+    if (empty($message)) {  // If no error message, proceed with database operations
+        $stmt = $pdo->prepare("INSERT INTO questions (test_id, question_text, question_type, points, image_data, image_type) VALUES (?, ?, 'mcq', ?, ?, ?)");
+        if ($stmt->execute([$test_id, $question_text, $points, $image_data, $image_type])) {
+            $question_id = $pdo->lastInsertId();
+
+            $options = [
+                'A' => $option_a,
+                'B' => $option_b,
+                'C' => $option_c,
+                'D' => $option_d
+            ];
+
+            foreach ($options as $label => $text) {
+                $is_correct = ($label === $correct_option) ? 1 : 0;
+                $pdo->prepare("INSERT INTO options (question_id, option_text, is_correct) VALUES (?, ?, ?)")
+                    ->execute([$question_id, $text, $is_correct]);
+            }
+
+            $message = "Question added successfully!";
+        } else {
+            $message = "Something went wrong while adding the question.";
+        }
     }
 }
 
@@ -472,6 +493,29 @@ $questions = $questions->fetchAll(PDO::FETCH_ASSOC);
             .question-points {
                 margin-top: 0.5rem;
             }
+            .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+        }
+        .question-image {
+            max-width: 300px;
+            max-height: 200px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        .file-input-container {
+            margin-bottom: 15px;
+        }
+        .file-input-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
         }
     </style>
 </head>
@@ -501,10 +545,17 @@ $questions = $questions->fetchAll(PDO::FETCH_ASSOC);
                 <h2 class="section-title">Add New Question</h2>
             </div>
             
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <div class="form-group">
                     <label for="question_text">Question Text:</label>
                     <textarea name="question_text" id="question_text" rows="4" required></textarea>
+                </div>
+                
+                <div class="file-input-container">
+                    <label class="file-input-label" for="question_image">Question Image (Optional):</label>
+                    <input type="file" name="question_image" id="question_image" accept="image/*" onchange="previewImage(this)">
+                    <p class="form-help">Supported formats: JPG, PNG, GIF</p>
+                    <img id="image_preview" class="image-preview" alt="Image Preview">
                 </div>
                 
                 <div class="form-row">
@@ -576,6 +627,12 @@ $questions = $questions->fetchAll(PDO::FETCH_ASSOC);
                             <span class="question-points"><?= $q['points'] ?> <?= $q['points'] == 1 ? 'point' : 'points' ?></span>
                         </div>
                         
+                        <?php if(!empty($q['image_data'])): ?>
+                            <div class="question-image-container">
+                                <img src="data:<?= htmlspecialchars($q['image_type']) ?>;base64,<?= base64_encode($q['image_data']) ?>" class="question-image" alt="Question Image">
+                            </div>
+                        <?php endif; ?>
+                        
                         <ul class="options-list">
                             <?php
                             $stmt = $pdo->prepare("SELECT * FROM options WHERE question_id = ?");
@@ -614,5 +671,23 @@ $questions = $questions->fetchAll(PDO::FETCH_ASSOC);
             </a>
         </div>
     </div>
+    
+    <script>
+    function previewImage(input) {
+        var preview = document.getElementById('image_preview');
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            }
+            
+            reader.readAsDataURL(input.files[0]);
+        } else {
+            preview.style.display = 'none';
+        }
+    }
+    </script>
 </body>
 </html>

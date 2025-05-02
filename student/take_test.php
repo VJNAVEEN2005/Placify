@@ -21,9 +21,9 @@ $stmt = $pdo->prepare("SELECT * FROM tests WHERE test_id = ?");
 $stmt->execute([$test_id]);
 $test = $stmt->fetch();
 
-// Fetch questions with their options
+// Fetch questions with their options AND image data
 $stmt = $pdo->prepare("
-    SELECT q.question_id, q.question_text, q.points, o.option_id, o.option_text
+    SELECT q.question_id, q.question_text, q.points, q.image_data, q.image_type, o.option_id, o.option_text
     FROM questions q
     JOIN options o ON q.question_id = o.question_id
     WHERE q.test_id = ?
@@ -41,6 +41,8 @@ foreach ($raw_data as $row) {
             'question_id' => $qid,
             'question_text' => $row['question_text'],
             'points' => $row['points'],
+            'image_data' => $row['image_data'],
+            'image_type' => $row['image_type'],
             'options' => []
         ];
     }
@@ -418,6 +420,21 @@ $question_count = count($questions);
             box-shadow: 0 6px 12px rgba(67, 97, 238, 0.25);
         }
         
+        /* New style for question images */
+        .question-image {
+            margin: 1rem 0;
+            display: block;
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+        
+        .question-image-container {
+            padding: 0 1.5rem;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        
         @media (max-width: 768px) {
             .dashboard-container {
                 padding: 0 1rem;
@@ -514,6 +531,18 @@ $question_count = count($questions);
                             </div>
                             <span class="question-points"><?= $q['points']; ?> <?= $q['points'] > 1 ? 'Points' : 'Point' ?></span>
                         </div>
+                        
+                        <?php if (!empty($q['image_data'])): ?>
+                        <div class="question-image-container">
+                            <?php
+                            // Convert binary image data to base64 for display
+                            $base64Image = base64_encode($q['image_data']);
+                            $imageType = $q['image_type'];
+                            ?>
+                            <img src="data:<?= $imageType; ?>;base64,<?= $base64Image; ?>" alt="Question Image" class="question-image">
+                        </div>
+                        <?php endif; ?>
+                        
                         <ul class="options-list">
                             <?php foreach ($q['options'] as $opt): ?>
                                 <li class="option-item">
